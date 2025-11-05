@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 
 public class SimplePriorityQueue<T>
-{
+{   
     private List<QueueNode> heap = new List<QueueNode>();
 
     private class QueueNode
