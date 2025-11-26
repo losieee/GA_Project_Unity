@@ -1,0 +1,284 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class DijkstraSample : MonoBehaviour
+{
+    public GameObject wallObj;
+    public GameObject landObj;
+    public GameObject forestObj;
+    public GameObject mudObj;
+    public GameObject player;
+
+
+    public int width = 21;
+    public int height = 21;
+
+    int[,] map;
+    GameObject[,] tiles;
+
+    Vector2Int startPos = new Vector2Int(1, 1);
+    Vector2Int goalPos;
+    List<Vector2Int> path;
+    List<GameObject> pathCubes = new List<GameObject>();
+
+    void Start()
+    {
+        goalPos = new Vector2Int(width - 2, height - 2);
+        MakeNewMaze();
+    }
+
+    void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.R)) MakeNewMaze();
+        if (Input.GetKeyDown(KeyCode.P)) ShowPath();
+        if (Input.GetKeyDown(KeyCode.G)) AutoMove();
+    }
+
+    void MakeNewMaze()
+    {
+        StopAllCoroutines();
+        DeleteOldTiles();
+        ClearPathCubes();
+
+        while (true)
+        {
+            map = CreateMaze();
+            if (CheckDFS(startPos.x, startPos.y, new bool[width, height])) break;
+        }
+
+        DrawMaze();
+        player.transform.position = new Vector3(startPos.x, 0.5f, startPos.y);
+        path = null;
+    }
+
+    void DeleteOldTiles()
+    {
+        if (tiles == null) return;
+
+        for (int x = 0; x < width; x++)
+            for (int y = 0; y < height; y++)
+                if (tiles[x, y] != null)
+                    Destroy(tiles[x, y]);
+    }
+
+    int[,] CreateMaze()
+    {
+        int[,] m = new int[width, height];
+
+        for (int x = 0; x < width; x++)
+            for (int y = 0; y < height; y++)
+                m[x, y] = 0;
+
+        for (int x = 1; x < width; x += 2)
+            for (int y = 1; y < height; y += 2)
+                m[x, y] = RandomTile();
+
+        System.Random rand = new System.Random();
+
+        for (int x = 1; x < width - 1; x += 2)
+            for (int y = 1; y < height - 1; y += 2)
+            {
+                int d = rand.Next(4);
+                int nx = x + (d == 0 ? 1 : d == 1 ? -1 : 0);
+                int ny = y + (d == 2 ? 1 : d == 3 ? -1 : 0);
+
+                if (Inside(nx, ny)) m[nx, ny] = RandomTile();
+            }
+
+        m[startPos.x, startPos.y] = 1;
+        m[goalPos.x, goalPos.y] = 1;
+
+        return m;
+    }
+
+    int RandomTile()
+    {
+        int r = Random.Range(0, 100);
+        if (r < 60) return 1;
+        if (r < 80) return 2;
+        return 3;
+    }
+
+    bool CheckDFS(int x, int y, bool[,] visit)
+    {
+        if (map[x, y] == 0) return false;
+        if (x == goalPos.x && y == goalPos.y) return true;
+        visit[x, y] = true;
+
+        Vector2Int[] dir = { new(1, 0), new(-1, 0), new(0, 1), new(0, -1) };
+
+        foreach (var d in dir)
+        {
+            int nx = x + d.x;
+            int ny = y + d.y;
+
+            if (!Inside(nx, ny)) continue;
+            if (map[nx, ny] == 0) continue;
+            if (visit[nx, ny]) continue;
+
+            if (CheckDFS(nx, ny, visit)) return true;
+        }
+
+        return false;
+    }
+
+    void DrawMaze()
+    {
+        tiles = new GameObject[width, height];
+
+        for (int x = 0; x < width; x++)
+            for (int y = 0; y < height; y++)
+            {
+                GameObject obj;
+
+                if (map[x, y] == 0) obj = wallObj;
+                else if (map[x, y] == 1) obj = landObj;
+                else if (map[x, y] == 2) obj = forestObj;
+                else obj = mudObj;
+
+                GameObject o = Instantiate(obj,
+                    new Vector3(x, map[x, y] == 0 ? 0.5f : 0f, y),
+                    Quaternion.identity);
+
+                if (map[x, y] == 0)
+                    o.transform.localScale = new Vector3(1f, 1f, 1f);
+                else
+                    o.transform.localScale = new Vector3(1f, 0.1f, 1f);
+
+                tiles[x, y] = o;
+            }
+    }
+
+
+    int TileCost(int t)
+    {
+        if (t == 1) return 1;
+        if (t == 2) return 3;
+        if (t == 3) return 5;
+        return 99999;
+    }
+
+    List<Vector2Int> FindPath()
+    {
+        int[,] dist = new int[width, height];
+        bool[,] used = new bool[width, height];
+        Vector2Int?[,] parent = new Vector2Int?[width, height];
+
+        for (int x = 0; x < width; x++)
+            for (int y = 0; y < height; y++)
+                dist[x, y] = int.MaxValue;
+
+        dist[startPos.x, startPos.y] = 0;
+
+        List<Vector2Int> open = new List<Vector2Int>();
+        open.Add(startPos);
+
+        Vector2Int[] dir = { new(1, 0), new(-1, 0), new(0, 1), new(0, -1) };
+
+        while (open.Count > 0)
+        {
+            int best = 0;
+
+            for (int i = 1; i < open.Count; i++)
+                if (dist[open[i].x, open[i].y] < dist[open[best].x, open[best].y])
+                    best = i;
+
+            Vector2Int cur = open[best];
+            open.RemoveAt(best);
+
+            if (used[cur.x, cur.y]) continue;
+            used[cur.x, cur.y] = true;
+
+            if (cur == goalPos) break;
+
+            foreach (var d in dir)
+            {
+                int nx = cur.x + d.x;
+                int ny = cur.y + d.y;
+
+                if (!Inside(nx, ny) || map[nx, ny] == 0 || used[nx, ny]) continue;
+
+                int newDist = dist[cur.x, cur.y] + TileCost(map[nx, ny]);
+
+                if (newDist < dist[nx, ny])
+                {
+                    dist[nx, ny] = newDist;
+                    parent[nx, ny] = cur;
+
+                    if (!open.Contains(new Vector2Int(nx, ny)))
+                        open.Add(new Vector2Int(nx, ny));
+                }
+            }
+        }
+
+        return BuildPath(parent);
+    }
+
+    List<Vector2Int> BuildPath(Vector2Int?[,] parent)
+    {
+        List<Vector2Int> list = new List<Vector2Int>();
+        Vector2Int? cur = goalPos;
+
+        while (cur.HasValue)
+        {
+            list.Add(cur.Value);
+            cur = parent[cur.Value.x, cur.Value.y];
+        }
+
+        list.Reverse();
+        return list;
+    }
+
+    public void ShowPath()
+    {
+        path = FindPath();
+        if (path == null) return;
+
+        foreach (var p in path)
+        {
+            GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            cube.transform.position = new Vector3(p.x, 0.5f, p.y);
+            cube.transform.localScale = new Vector3(0.6f, 0.6f, 0.6f);
+            cube.GetComponent<Renderer>().material.color = Color.green;
+
+            pathCubes.Add(cube);
+        }
+    }
+    void ClearPathCubes()
+    {
+        foreach (var c in pathCubes)
+            Destroy(c);
+
+        pathCubes.Clear();
+    }
+
+
+    public void AutoMove()
+    {
+        if (path == null) path = FindPath();
+        StopAllCoroutines();
+        StartCoroutine(Moving());
+    }
+
+    IEnumerator Moving()
+    {
+        foreach (var p in path)
+        {
+            Vector3 targetPos = new Vector3(p.x, 0.5f, p.y);
+
+            while (Vector3.Distance(player.transform.position, targetPos) > 0.05f)
+            {
+                player.transform.position =
+                    Vector3.MoveTowards(player.transform.position, targetPos, Time.deltaTime * 3f);
+
+                yield return null;
+            }
+        }
+    }
+
+    bool Inside(int x, int y)
+    {
+        return x > 0 && y > 0 && x < width && y < height;
+    }
+}
