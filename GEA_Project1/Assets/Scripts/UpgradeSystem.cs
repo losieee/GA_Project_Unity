@@ -41,9 +41,6 @@ public class UpgradeSystem : MonoBehaviour
         UpdateUI();
     }
 
-    //---------------------------------------------------------
-    // 강화하기 버튼 (단계 증가)
-    //---------------------------------------------------------
     public void SetLevelUp()
     {
         fromLevel++;
@@ -51,27 +48,15 @@ public class UpgradeSystem : MonoBehaviour
         UpdateUI();
     }
 
-    //---------------------------------------------------------
-    // UI 업데이트 (레벨 표시, 필요 경험치 계산)
-    //---------------------------------------------------------
     void UpdateUI()
     {
-        // UI 텍스트 갱신
         levelText.text = $"+{fromLevel} -> +{toLevel}";
-
-        // 단일 강화 비용 공식: 필요 경험치 = 8(2N + 1)
         needExp = 8 * (2 * fromLevel + 1);
-
         needExpText.text = $"필요 경험치 {needExp}/{needExp}";
-
-        // 슬라이더 갱신
         expSlider.maxValue = needExp;
         expSlider.value = needExp;
     }
 
-    //---------------------------------------------------------
-    // 버튼 이벤트 → 알고리즘 실행
-    //---------------------------------------------------------
     public void OnClick_BruteForce()
     {
         var result = BruteForce(needExp);
@@ -96,9 +81,6 @@ public class UpgradeSystem : MonoBehaviour
         PrintResult(result, "exp 큰 것 우선");
     }
 
-    //---------------------------------------------------------
-    // Greedy Algorithms
-    //---------------------------------------------------------
     Dictionary<string, int> BuyBySmallWaste(int needExp)
     {
         stones.Sort((a, b) => a.exp.CompareTo(b.exp));
@@ -132,9 +114,6 @@ public class UpgradeSystem : MonoBehaviour
         return result;
     }
 
-    //---------------------------------------------------------
-    // Brute Force (완전 탐색)
-    //---------------------------------------------------------
     Dictionary<string, int> BruteForce(int needExp)
     {
         int minGold = int.MaxValue;
@@ -172,9 +151,6 @@ public class UpgradeSystem : MonoBehaviour
         return answer;
     }
 
-    //---------------------------------------------------------
-    // 결과 출력
-    //---------------------------------------------------------
     void PrintResult(Dictionary<string, int> dic, string title)
     {
         int totalGold = 0;
@@ -185,12 +161,10 @@ public class UpgradeSystem : MonoBehaviour
             Stone s = stones.Find(x => x.name == kv.Key);
             int gold = kv.Value * s.gold;
             totalGold += gold;
-
             text += $"{kv.Key} x {kv.Value} (exp {s.exp}) → {gold} gold\n";
         }
 
         text += $"\n총 가격 : {totalGold} gold";
-
         resultText.text = text;
     }
 }
